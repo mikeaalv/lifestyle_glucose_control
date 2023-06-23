@@ -13,7 +13,7 @@ require(readxl)
 require(reshape2)
 comp="/Users/yuewu/"
 proj_dir=paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/")
-resdir=paste0(proj_dir,"res/")
+resdir=paste0(proj_dir,"res/res_reproduce/")
 setwd(resdir)
 # 
 response_class_list=c("a1c_t2d_status","sspg_status","DI_status","ie_3_classes","hepatic_ir_3classes","FFA_3classes")
@@ -86,6 +86,7 @@ baselineest_coll=c() #just guess the majority: the proportion of the majority cl
 npara_coll=c()
 var_select=list()
 model_coll=list()
+var_select_each=list()
 varexp=c()
 response_class_list_clean=response_class_list[c(-3,-5)]#no hepatic_ir_3classes as the problem from small sample size
 for(res_class in response_class_list_clean){
@@ -148,13 +149,25 @@ for(res_class in response_class_list_clean){
     ytab=table(y)
     baselineest_coll=c(baselineest_coll,1-max(ytab)/sum(ytab))
     mfit<-glmnet(xsele,y,family=modelfamily,alpha=1,lambda=0)
+    # only works for binomial (2 classes)
+    # logistic regression for each feature
+    temp_sin_tab=c()
+    for(feat in selectedvar){
+        datadf=data.frame(x=xsele[,feat],class=y)
+        glm_fit=glm(class~x,data=datadf,family=binomial)
+        glm_fit_sum=summary(glm_fit)
+        temp_sin_tab=rbind(temp_sin_tab,glm_fit_sum$coefficients["x",c(1,2,4)])
+    }
+    colnames(temp_sin_tab)=c("val","ste","pvalue")
+    rownames(temp_sin_tab)=selectedvar
     model_coll[[res_class]]=mfit
     # print(1-sum(predict(mfit,xtest[,selectedvar],type="class")==ytest)/5)
     var_select[[res_class]]=coef(mfit)
+    var_select_each[[res_class]]=temp_sin_tab
 }
 datsumary=data.frame(classes=response_class_list_clean,lambda=lambda_best_coll,nzero=npara_coll,var_exp=varexp,Miss_class_err=miss_class_error_coll,baseline=baselineest_coll)
 var_select_class=var_select
-save(datsumary,var_select_class,model_coll,file=paste0(proj_dir,"res/lasso_fit_class.RData"))
+save(datsumary,var_select_class,var_select_each,model_coll,file=paste0(proj_dir,"res/lasso_fit_class.RData"))
 write.table(format(datsumary,digits=2),file="perf_class.tsv",sep="\t",row.names=FALSE)
 # visualize targetted features
 ## t.test for all selected features for the classification
@@ -201,11 +214,26 @@ for(res_class in response_class_list_clean){
     reordind=order(coef_df[,"val"])
     coef_df=coef_df[reordind,]
     featname=coef_df[,"coef"]
-    coef_df[,"coef"]=label_vec[featname]
+    coef_df[,"coef"]=ifelse(featname%in%names(label_vec),label_vec[featname],featname)
     coef_df[,"coef"]=factor(coef_df[,"coef"],levels=coef_df[,"coef"])
     lablval=paste0("error rates ",format(datsumary[datsumary[,"classes"]==res_class,"Miss_class_err"],digits=2,nsmall=2))
     p<-ggplot(coef_df,aes(x=coef,y=val)) + geom_bar(stat="identity",fill=color_feature_vec[featname]) + coord_flip() + labs(x="",y="Coefficients") + ggtitle(res_class) + theme_bw() + theme(panel.background=element_blank(),panel.grid=element_blank()) + annotate("text",x= Inf,y= 0,label=lablval,vjust=1,hjust=1)
     ggsave(paste0(resdir,"coef_",res_class,".pdf"),width=5,height=5)
+}
+# each with separate logistic regresssion 
+for(res_class in response_class_list_clean){
+    coefmat=var_select_each[[res_class]]
+    coef_df=as.data.frame(coefmat)
+    reordind=order(coef_df[,"val"])
+    coef_df=coef_df[reordind,]
+    featname=rownames(coef_df)
+    coef_df[,"coef"]=ifelse(featname%in%names(label_vec),label_vec[featname],featname)
+    coef_df[,"coef"]=factor(coef_df[,"coef"],levels=coef_df[,"coef"])
+    lablval=paste0("error rates ",format(datsumary[datsumary[,"classes"]==res_class,"Miss_class_err"],digits=2,nsmall=2))
+    p<-ggplot(coef_df,aes(x=coef,y=val)) + geom_bar(stat="identity",fill=color_feature_vec[featname]) + geom_errorbar(aes(ymin=val-ste*2, ymax=val+ste*2))+ coord_flip() + labs(x="",y="Coefficients") + ggtitle(res_class) + theme_bw() + theme(panel.background=element_blank(),panel.grid=element_blank()) + annotate("text",x= Inf,y= 0,label=lablval,vjust=1,hjust=1)
+    ggsave(paste0(resdir,"coef_",res_class,"_sep_logisticreg_errorbar.pdf"),width=5,height=5)
+    p<-ggplot(coef_df,aes(x=coef,y=val)) + geom_bar(stat="identity",fill=color_feature_vec[featname])+geom_text(aes(label=ifelse(pvalue<0.05,"*","")),position=position_dodge(width =.9),size=20/.pt) + coord_flip() + labs(x="",y="Coefficients") + ggtitle(res_class) + theme_bw() + theme(panel.background=element_blank(),panel.grid=element_blank()) + annotate("text",x= Inf,y= 0,label=lablval,vjust=1,hjust=1)
+    ggsave(paste0(resdir,"coef_",res_class,"_sep_logisticreg_pval.pdf"),width=5,height=5)
 }
 # plot error rates
 datsumary2=datsumary
