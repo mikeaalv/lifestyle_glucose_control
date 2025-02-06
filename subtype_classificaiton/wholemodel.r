@@ -12,7 +12,7 @@ require(rms)
 require(readxl)
 require(reshape2)
 comp="/Users/yuewu/"
-proj_dir=paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/")
+proj_dir=paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/")
 resdir=paste0(proj_dir,"res/res_reproduce/")
 setwd(resdir)
 # 
@@ -26,9 +26,9 @@ eatsele_oth=c("energy","fib","chol","sat.fat","trans.fat","sodium","VitD","Ca","
 otherfeat=c("latency.dur","sleep.dur","waso.dur","wake_t","daily_steps","move.over.sed","active.hours","last.to.bed","wake.to.first")#s,s,s,s,a,a,a,D_S,d_s
 habits_feat=c("subject.id",meal_energy,carb_source,eatsele_oth,otherfeat)
 # 
-metatest_tab=read.table(paste0(proj_dir,"metabolic_testing/meta_lab_1.csv"),header=TRUE,sep=",")
+metatest_tab=read.table(paste0(proj_dir,"data/meta_lab_1_old.csv"),header=TRUE,sep=",")
 # mean features
-load(paste0(proj_dir,"(Secure)_CGM_data/Lifestyle_Features/diet_sleep_PA_features_Avgdays.RData"))
+load(paste0(proj_dir,"data/diet_sleep_PA_features_Avgdays_old.RData"))
 habit_mean=diet_sleep_PA_features_Avgdays[,habits_feat]
 # # variation in features
 # load(paste0(proj_dir,"(Secure)_CGM_data/Lifestyle_Features/diet_sleep_PA_features_Alldays.RData"))
@@ -167,7 +167,7 @@ for(res_class in response_class_list_clean){
 }
 datsumary=data.frame(classes=response_class_list_clean,lambda=lambda_best_coll,nzero=npara_coll,var_exp=varexp,Miss_class_err=miss_class_error_coll,baseline=baselineest_coll)
 var_select_class=var_select
-save(datsumary,var_select_class,var_select_each,model_coll,file=paste0(proj_dir,"res/lasso_fit_class.RData"))
+save(datsumary,var_select_class,var_select_each,model_coll,file=paste0(resdir,"lasso_fit_class.RData"))
 write.table(format(datsumary,digits=2),file="perf_class.tsv",sep="\t",row.names=FALSE)
 # visualize targetted features
 ## t.test for all selected features for the classification
@@ -203,7 +203,7 @@ color_feature_vec[c(meal_energy,carb_source,eatsele_oth)]=color_group[["diet"]]
 color_feature_vec[c("latency.dur","sleep.dur","waso.dur","wake_t","last.to.bed","wake.to.first")]=color_group[["sleep"]]# set all diet_sleep features sleep features
 color_feature_vec[c("daily_steps","move.over.sed","active.hours")]=color_group[["activity"]]
 color_feature_vec[c("exercise")]=color_group[["activity"]]
-varlabtab=read_excel(paste0(proj_dir,"heyjun_data_run/Variables_Labeling.xlsx"),col_names=FALSE)
+varlabtab=read_excel(paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/heyjun_data_run/Variables_Labeling.xlsx"),col_names=FALSE)
 label_vec=varlabtab[[2]]
 names(label_vec)=varlabtab[[1]]
 for(res_class in response_class_list_clean){
@@ -295,7 +295,7 @@ for(res_class in response_cont_list_clean){
 }
 datsumary=data.frame(classes=response_cont_list_clean,lambda=lambda_best_coll,nzero=npara_coll,var_exp=varexp,corr=corr_coll)
 var_select_cont=var_select
-save(datsumary,var_select_cont,model_coll,file=paste0(proj_dir,"res/lasso_fit_cont.RData"))
+save(datsumary,var_select_cont,model_coll,file=paste0(resdir,"lasso_fit_cont.RData"))
 # plotting features 
 for(res_class in response_cont_list_clean){
     coefmat=var_select_cont[[res_class]]
