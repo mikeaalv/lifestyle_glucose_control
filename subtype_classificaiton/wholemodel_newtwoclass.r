@@ -305,7 +305,6 @@ for(res_class in response_cont_list_clean){
     # 
     lambda_best_coll=c(lambda_best_coll,lambda.min)
     npara_coll=c(npara_coll,cv$nzero[minind])
-    # matplot(as.data.frame(perfs),type="l")
     coefmat=coef(cv,s=lambda.min)
     selectedvar=xcollab[coefmat@i[-1]]
     xsele=x[,selectedvar,drop=FALSE]
@@ -319,10 +318,7 @@ for(res_class in response_cont_list_clean){
     cv <- cv.glmnet(xsele,y=y,alpha=1,family=modelfamily,type.measure="mse",nfolds=length(y),lambda=c(0,1),keep=TRUE) #,
     zerolambdain=which(cv$lambda==0)
     varexp=c(varexp,cv$glmnet.fit$dev.ratio[zerolambdain])
-    # assess.glmnet(mfit,newx=xsele,newy=y)
-    # plot(roc.glmnet(mfit,newx=xsele,newy=y),type="l")
     # 
-    ytab=table(y)
     mfit<-glmnet(xsele,y,family=modelfamily,alpha=1,lambda=0)
     model_coll[[res_class]]=mfit
     # print(1-sum(predict(mfit,xtest[,selectedvar],type="class")==ytest)/5)
