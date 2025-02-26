@@ -14,7 +14,7 @@ require(readxl)
 require(reshape2)
 comp="/Users/yuewu/"
 proj_dir=paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/")
-resdir=paste0(proj_dir,"res/result_refine/")
+resdir=paste0(proj_dir,"res/result_refine2/")
 setwd(resdir)
 # all day to avg day
 # tab_allday=read.table("/Users/yuewu/Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/data/all_diet_sleep_PA_features_alldays.csv",header=TRUE,sep=",")
@@ -26,8 +26,8 @@ setwd(resdir)
 # save(tab_avgday,file="/Users/yuewu/Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/data/all_diet_sleep_PA_features_avgdays_newpart.RData")
 # feature list
 response_class_list=c("a1c_t2d_status","sspg_status","DI_status","IE_status","HIR_status","adiposeIR_status")
-response_cont_list=c("a1c","sspg","modified_DI","ie","hepatic_IR","ffa_avg")
-feat_general_list=c("age","sex","ethnicity","alcohol","exercise","education","bmi_avg")#features from meta data, demographic
+response_cont_list=c("a1c_bl","sspg","modified_DI","ie","hepatic_IR","ffa_avg")
+feat_general_list=c("age","sex","ethnicity","alcohol","exercise","education","bmi_bl")#features from meta data, demographic
 # habtis related features
 meal_energy=c("Meal2_Br_energy","Meal3_L_energy","Meal4_L_energy","Meal5_D_energy")#d_timing
 carb_source=c("Carb_Fruits","Carb_Rice","Carb_Starchy_Vegetables","Carb_Pasta_Noodles","Carb_Non_Starchy_Vegetables","Carb_Bread_Products","Carb_Coffee","Carb_Legume_Products","Carb_Sweets","Carb_Snacks")#d_composition
@@ -35,7 +35,7 @@ eatsele_oth=c("energy","fib","chol","sat.fat","trans.fat","sodium","VitD","Ca","
 otherfeat=c("latency.dur","sleep.dur","waso.dur","wake_t","daily_steps","move.over.sed","active.hours")#s,s,s,s,a,a,a,D_S,d_s
 habits_feat=c("subject.id",meal_energy,carb_source,eatsele_oth,otherfeat)
 # new meta table
-metatest_tab=read.table(paste0(proj_dir,"data/combined_meta_data_all_final2.csv"),header=TRUE)
+metatest_tab=read.table(paste0(proj_dir,"data/combined_meta_data_all_final3.csv"),header=TRUE,sep=",")
 ## consistent columns 
 indnew=metatest_tab[,"cohort"]=="validation"
 metatest_tab[indnew,"sex"]=ifelse(metatest_tab[indnew,"sex"]=="Female",0,1)
@@ -163,7 +163,7 @@ for(res_class in response_class_list_clean){
         xsele=cbind(xsele,constant)
     }
     # calculate performance by just rerun with the selected feature set
-    cv <- cv.glmnet(xsele,y=y,alpha=1,family=modelfamily,type.measure="class",nfolds=length(y),lambda=c(0,1)) #,
+    cv <- cv.glmnet(xsele,y=y,alpha=1,family=modelfamily,type.measure="class",nfolds=length(y),lambda=c(0,1),maxit=1000000) #,
     zerolambdain=which(cv$lambda==0)
     perfs<-cv$cvm
     miss_class_error_coll=c(miss_class_error_coll,perfs[zerolambdain])
@@ -175,7 +175,7 @@ for(res_class in response_class_list_clean){
     ytab=table(y_val)
     baselineest_coll_val=c(baselineest_coll_val,1-max(ytab)/sum(ytab))
     # predictions and for saving of final coef estimation
-    mfit<-glmnet(xsele,y,family=modelfamily,alpha=1,lambda=0)
+    mfit<-glmnet(xsele,y,family=modelfamily,alpha=1,lambda=0,maxit=1000000)
     # validation
     y_pred_val=predict(mfit,newx=x_val[,selectedvar,drop=FALSE],type="class")
     miss_class_error_coll_val=c(miss_class_error_coll_val,sum(y_val!=y_pred_val)/length(y_pred_val))
