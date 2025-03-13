@@ -14,7 +14,7 @@ require(readxl)
 require(reshape2)
 comp="/Users/yuewu/"
 proj_dir=paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/")
-resdir=paste0(proj_dir,"res/result_refine2/")
+resdir=paste0(proj_dir,"res/result_refine3/")
 setwd(resdir)
 # all day to avg day
 # tab_allday=read.table("/Users/yuewu/Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/habit_run_02062025/data/all_diet_sleep_PA_features_alldays.csv",header=TRUE,sep=",")
@@ -241,7 +241,13 @@ color_feature_vec[c("exercise")]=color_group[["activity"]]
 varlabtab=read_excel(paste0(comp,"Library/CloudStorage/Box-Box/Yue Wu's Files/cgm_dataset/heyjun_data_run/Variables_Labeling.xlsx"),col_names=FALSE)
 label_vec=varlabtab[[2]]
 names(label_vec)=varlabtab[[1]]
-for(res_class in response_class_list_clean){
+# add: # t2d with only the features with the 10 highest absolute values
+res_class="a1c_t2d_status"
+res_class_n="a1c_t2d_status10"
+coefmat=var_select_class[[res_class]]
+newind=c(1,order(abs(coefmat[-1,"s0"]),decreasing=TRUE)[1:10]+1)
+var_select_class[[res_class_n]]=coefmat[newind,,drop=FALSE]
+for(res_class in c(response_class_list_clean,"a1c_t2d_status10")){
     coefmat=var_select_class[[res_class]]
     names=coefmat@Dimnames[[1]]
     vals=coefmat@x
