@@ -1,1 +1,64 @@
 CGM_and_HR/README.md
+
+#Code Updated for the plot
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+plt.close("all")
+# Load CGM_PST_Final.csv
+cgm_data = pd.read_csv('CGM_PST_Final.csv')
+
+# Get the list of IDs
+inf_data = pd.read_csv('INF.csv')
+ids = inf_data['subject.id'].tolist()
+
+# Initialize a list to store data frames
+dfs = []
+
+# Loop through each ID
+for id in ids:
+    try:
+        # Read the corresponding HR_{id}.csv file
+        hr_data = pd.read_csv(f'HR_{id}.csv')
+        
+        # Merge with CGM data based on common PST_time and PST_date
+        merged_data = pd.merge(hr_data, cgm_data, on=['PST_time', 'PST_date'])
+        
+        # Append the data frame to the list
+        dfs.append(merged_data[['HR_HRmax', 'CGM', 'PST_time']])
+        
+    except FileNotFoundError:
+        print(f"File HR_{id}.csv not found.")
+
+# Concaten1ate all data frames in the list
+plot_data = pd.concat(dfs)
+
+# Convert PST_time to numeric values representing time in hours
+plot_data['PST_time'] = pd.to_datetime(plot_data['PST_time']).dt.time
+plot_data['PST_hours'] = plot_data['PST_time'].apply(lambda x: x.hour + x.minute/60 + x.second/3600)
+
+# Create a scatter plot with all points in grey
+plt.scatter(plot_data['HR_HRmax'], plot_data['CGM'], color='grey', s=5)
+
+# Define the data points for polynomial fit
+# HR_HRmax_points = np.array([0.2, 0.24, 0.28, 0.378, 0.5, 0.6497, 0.7329, 0.8578, 0.9873, 1.14, 1.248])
+# CGM_points = np.array([99.86, 152, 194, 233, 221, 197, 176, 153, 130, 107, 100])
+
+# # Fit a polynomial curve to the data points
+# degree = 3
+# p = np.polyfit(HR_HRmax_points, CGM_points, degree)
+# HR_HRmax_fit = np.linspace(HR_HRmax_points.min(), HR_HRmax_points.max(), 100)
+# CGM_fit = np.polyval(p, HR_HRmax_fit)
+# plt.plot(HR_HRmax_fit, CGM_fit, 'r-', linewidth=6)
+
+# Set labels, titles, and other plot properties
+plt.xlabel('HR/HRmax', weight='bold')
+plt.ylabel('CGM (mg/dL)', weight='bold')
+plt.title('Distribution of CGM as a Function of HR/HRmax', weight='bold')
+# plt.legend(['Variation of CGM'], loc='upper right')
+plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+plt.gca().set_facecolor('whitesmoke')
+
+plt.show()
