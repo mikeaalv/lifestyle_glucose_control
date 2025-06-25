@@ -34,14 +34,14 @@ loadfonts()
 ```
 #import data
 ```{r}
-cgm = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cgm.csv")
-cgm_cycles = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cycles.csv")
-diet = read_csv("~/Desktop/git/lifestyle_glucose_control/data/data2_cat_v3.csv")
-activity_index_all = read_csv("~/Desktop/git/lifestyle_glucose_control/data/activity_index_all.csv")
-meta.lab.v2 = read_csv("~/Desktop/git/lifestyle_glucose_control/data/meta_lab_1_v2.csv")
-diet_timing = read_csv("~/Desktop/git/lifestyle_glucose_control/data/diet_timing.csv")
-sleep = read_csv("~/Desktop/git/lifestyle_glucose_control/data/data_sleep_cycle123.csv")
-steps_all = read_csv("~/Desktop/git/lifestyle_glucose_control/data/steps_all.csv")
+cgm = read_csv("cgm.csv")
+cgm_cycles = read_csv("cycles.csv")
+diet = read_csv("data2_cat_v3.csv")
+activity_index_all = read_csv("activity_index_all.csv")
+meta.lab.v2 = read_csv("meta_lab_1_v2.csv")
+diet_timing = read_csv("diet_timing.csv")
+sleep = read_csv("data_sleep_cycle123.csv")
+steps_all = read_csv("steps_all.csv")
 ```
 #data wrangling
 ```{r}

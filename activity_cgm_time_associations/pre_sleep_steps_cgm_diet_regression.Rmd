@@ -36,7 +36,7 @@ library(MuMIn)
 ```
 #import data
 ```{r}
-steps_pre_sleep = read_csv("/Users/delfarah/Desktop/CGM/output/steps_pre_sleep.csv")
+steps_pre_sleep = read_csv("steps_pre_sleep.csv")
 ```
 #plot theme
 ```{r, plot theme}

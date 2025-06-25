@@ -34,10 +34,10 @@ loadfonts()
 ```
 #import data
 ```{r}
-cgm = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cgm.csv")
-cgm_cycles = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cycles.csv")
-meta.lab.v2 = read_csv("~/Desktop/git/lifestyle_glucose_control/data/meta_lab_1_v2.csv")
-steps_all = read_csv("~/Desktop/git/lifestyle_glucose_control/data/steps_all.csv")
+cgm = read_csv("cgm.csv")
+cgm_cycles = read_csv("cycles.csv")
+meta.lab.v2 = read_csv("meta_lab_1_v2.csv")
+steps_all = read_csv("steps_all.csv")
 ```
 #steps distribution
 ```{r}
