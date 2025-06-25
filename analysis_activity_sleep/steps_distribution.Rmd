@@ -1,0 +1,165 @@
+---
+title: "Script for generating step count distribution of IS vs. IR"
+date: "11/12/2022"
+author: "Alireza Delfarah"
+---
+
+#libraries
+```{r}
+library(plyr)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(reshape)
+library(reshape2); 
+library(grid)
+library(gridExtra)
+library(scales)
+library(RColorBrewer)
+library(extrafont)
+library(ggpubr)
+library(factoextra)
+library(matrixStats)
+library("writexl")
+library(psycho)
+library(lubridate)
+library("rjson")
+library(readtext)
+library(readr)
+library(stringr)
+library(viridis)
+library(hms)
+library(anytime)
+loadfonts()
+```
+#import data
+```{r}
+cgm = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cgm.csv")
+cgm_cycles = read_csv("~/Desktop/git/lifestyle_glucose_control/data/cycles.csv")
+meta.lab.v2 = read_csv("~/Desktop/git/lifestyle_glucose_control/data/meta_lab_1_v2.csv")
+steps_all = read_csv("~/Desktop/git/lifestyle_glucose_control/data/steps_all.csv")
+```
+#steps distribution
+```{r}
+
+cgm$date_time <- as_datetime(cgm$time)
+cgm$date <- as_date(cgm$date_time)
+cgm$time_of_day <- format(as.POSIXct(cgm$date_time), format = "%H:%M:%S")
+cgm$time_of_day_2 <- as_hms(cgm$date_time)
+cgm$time_numeric <- as.numeric(cgm$time_of_day_2)
+
+
+cgm['timing'] <- NA
+cgm <- cgm %>% relocate(timing, .before = time)
+
+cgm$timing[cgm$time_numeric > 0 & cgm$time_numeric < 18000] <- "cgm-midnight-5am"
+cgm$timing[cgm$time_numeric > 18000 & cgm$time_numeric < 28800] <- "cgm-5am-8am"
+cgm$timing[cgm$time_numeric > 28800 & cgm$time_numeric < 39600] <- "cgm-8am-11am"
+cgm$timing[cgm$time_numeric > 39600 & cgm$time_numeric < 50400] <- "cgm-11am-2pm"
+cgm$timing[cgm$time_numeric > 50400 & cgm$time_numeric < 61200] <- "cgm-2pm-5pm"
+cgm$timing[cgm$time_numeric > 61200 & cgm$time_numeric < 75600] <- "cgm-5pm-9pm"
+cgm$timing[cgm$time_numeric > 75600 & cgm$time_numeric < 86400] <- "cgm-9pm-midnight"
+cgm$timing <- factor(cgm$timing , levels=c("cgm-midnight-5am","cgm-5am-8am","cgm-8am-11am","cgm-11am-2pm", "cgm-2pm-5pm", "cgm-5pm-9pm", "cgm-9pm-midnight"))
+
+#calculate average cgm for each day and zones
+#daily avg
+daily.CGM <- aggregate(cgm$CGM, by=list(ID=cgm$ID, date = cgm$date), FUN=mean)
+x <- c("ID", "date", "avg_CGM")
+colnames(daily.CGM) <- x
+
+#zones avg
+daily.CGM.zones <- aggregate(cgm$CGM, by=list(ID=cgm$ID, date = cgm$date, timing = cgm$timing), FUN=mean)
+x <- c("ID", "date", "timing", "avg_CGM")
+colnames(daily.CGM.zones) <- x
+
+#long to wide format for zones
+daily.CGM.zones.wide <- dcast(daily.CGM.zones, ID + date ~ timing)
+daily.CGM.zones.wide <- daily.CGM.zones.wide[complete.cases(daily.CGM.zones.wide), ]
+daily.CGM.zones.wide = left_join(daily.CGM.zones.wide,daily.CGM,by=c("ID"="ID", "date"="date"))
+
+#remove day gaps
+daily.CGM.zones.wide$day_number_CGM_no_gap <- daily.CGM.zones.wide$day_number_CGM.x
+daily.CGM.zones.wide.days <- daily.CGM.zones.wide[1,]
+daily.CGM.zones.wide.days <- daily.CGM.zones.wide.days[-1,]
+
+for (p in unique(daily.CGM.zones.wide$ID))
+{
+  i=1
+  temp <- daily.CGM.zones.wide[(daily.CGM.zones.wide$ID == p),]
+  for (n in unique(temp$day_number_CGM.x))
+    {
+    temp$day_number_CGM_no_gap[which(temp$day_number_CGM.x == n)] <- i
+    i=i+1}
+  daily.CGM.zones.wide.days <- rbind(daily.CGM.zones.wide.days,temp)
+  }
+    
+
+steps_all$timing <- factor(steps_all$timing , levels=c("midnight-5am","5am-8am","8am-11am","11am-2pm", "2pm-5pm", "5pm-9pm", "9pm-midnight"))
+
+#daily steps
+daily.steps <- aggregate(steps_all$steps, by=list(ID=steps_all$ID, date = steps_all$date), FUN=sum)
+x <- c("ID", "date", "avg_steps")
+colnames(daily.steps) <- x 
+
+daily.steps.zones <- aggregate(steps_all$steps, by=list(ID=steps_all$ID, date = steps_all$date, timing = steps_all$timing), FUN=sum)
+x <- c("ID", "date", "timing", "steps")
+colnames(daily.steps.zones) <- x 
+
+#long to wide format for zones
+daily.steps.zones.wide <- dcast(daily.steps.zones, ID + date ~ timing)
+
+daily.zones.data.combined = left_join(daily.CGM.zones.wide.days,daily.steps,by=c("ID"="ID", "date"="date"))
+daily.zones.data.combined = left_join(daily.zones.data.combined,daily.steps.zones.wide,by=c("ID"="ID", "date"="date"))
+daily.zones.data.combined <- daily.zones.data.combined[complete.cases(daily.zones.data.combined), ]
+daily.zones.data.combined <- daily.zones.data.combined %>%
+  dplyr::rename("steps-midnight-5am" = "midnight-5am", "steps-5am-8am" = "5am-8am", "steps-8am-11am" = "8am-11am","steps-11am-2pm" = "11am-2pm", "steps-2pm-5pm" = "2pm-5pm", "steps-5pm-9pm" = "5pm-9pm", "steps-9pm-midnight" = "9pm-midnight")
+daily.zones.data.combined <- daily.zones.data.combined %>% relocate(avg_CGM, .after = date)
+daily.zones.data.combined <- daily.zones.data.combined %>% relocate(avg_steps, .after = date)
+daily.zones.data.combined = left_join(daily.zones.data.combined,daily.energy.zones.wide,by=c("ID"="ID", "date"="date"))
+daily.zones.data.combined_v2 <- daily.zones.data.combined[!is.na(daily.zones.data.combined$avg_steps), ]
+daily.zones.data.combined_v3 <- daily.zones.data.combined_v2
+daily.zones.data.combined_v3[is.na(daily.zones.data.combined_v3)] <- 0
+daily.zones.data.combined_v4 <- daily.zones.data.combined_v3[,(1:18)]
+daily.zones.data.combined_v4 <- daily.zones.data.combined_v4[,-(2:11)]
+daily.zones.data.combined_v4 = left_join(daily.zones.data.combined_v4,meta.lab.v2,by=c("ID"="subject.id"))
+daily.zones.data.combined_v5 <- cbind(daily.zones.data.combined_v4[(1:8)], daily.zones.data.combined_v4[48])
+colnames(daily.zones.data.combined_v5) <- c("ID","midnight-5am","5am-8am","8am-11am","11am-2pm", "2pm-5pm", "5pm-9pm", "9pm-midnight", "sspg_status")
+daily.zones.data.combined_v5 <-
+  daily.zones.data.combined_v5[complete.cases(daily.zones.data.combined_v5), ]
+
+melt_steps <- melt(daily.zones.data.combined_v5)
+melt_steps <- melt_steps[-1]
+colnames(melt_steps) <- c("sspg_status", "zone", "steps")
+melt_steps <- melt_steps %>% relocate(sspg_status, .after = steps)
+melt_steps$sspg_status <- factor(melt_steps$sspg_status , levels=c("IS","IR"))
+names(melt_steps)[names(melt_steps) == 'sspg_status'] <- 'SSPG'
+
+#plot distribution of step count
+p <- list()
+p[[1]] <- ggplot(data=melt_steps, 
+                   aes(x=zone, y=steps, fill=SSPG)) + 
+    geom_boxplot() +
+    ggtitle("") + xlab("") + ylab("step count") +
+    scale_fill_manual(values=c("#558B2F", "#FB8C00")) +
+    theme(panel.border = element_rect(colour = "black", fill=NA, size=2), 
+                           panel.background = element_rect(fill="white", colour="white", size=0.1,linetype="solid", color="black"),
+                           panel.grid.major = element_line(size = 0.3, linetype = 'solid', colour = "grey"),
+                           panel.grid.minor = element_line(size = 0.13, linetype = 'solid', colour = "grey"), 
+                           legend.position = "bottom", text = element_text(size = 20), legend.text=element_text(size=20, face="bold"),
+                           axis.ticks.x = element_line(colour="black"),
+                           axis.ticks.y = element_line(colour="black"),
+                           axis.line = element_line(colour = 'black', size = 0.1), 
+                           axis.title=element_text(size=14,face="bold"), 
+                           plot.title = element_text(size=14, face="bold"),
+                           axis.text.x = element_text(colour = "black", size=10, angle = 45, vjust = 0.6, face = "bold"), 
+                           axis.text.y = element_text(colour = "black",size=10, face = "bold")) +
+    theme(axis.title = element_text(size=20,face="bold"), 
+          axis.text.x = element_text(colour = "black", size=20, angle = 45, vjust = 0.6, face = "bold"), 
+          axis.text.y = element_text(colour = "black",size=20, face = "bold"),
+          plot.title = element_text(size=20, face="bold"))
+
+p <- marrangeGrob(p, nrow=1, ncol=1)
+setwd("~/Desktop/git/CGM")
+ggsave(file="steps_distribution_IS_IR.pdf", p, width=11,height=8)
+
+```
