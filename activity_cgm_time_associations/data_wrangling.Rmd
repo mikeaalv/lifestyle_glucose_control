@@ -47,7 +47,6 @@ steps_all = read_csv("steps_all.csv")
 ```{r}
 ##############################################################################################
 #data wrangling for CGM, physical activity, sleep, diet
-#data for steps, energy, and carb scaled to 0 to 1 after summing values for each time-window
 ##############################################################################################
 
 cgm$date_time <- as_datetime(cgm$time)
@@ -128,291 +127,6 @@ daily.zones.data.combined <- daily.zones.data.combined %>%
 
 daily.zones.data.combined <- daily.zones.data.combined %>% relocate(avg_CGM, .after = date)
 daily.zones.data.combined <- daily.zones.data.combined %>% relocate(avg_steps, .after = date)
-
-
-diet$energy[diet$energy < 0] <- 0
-diet$carb[diet$carb < 0] <- 0
-
-diet$energy[is.na(diet$energy)] <- 0
-diet$carb[is.na(diet$carb)] <- 0
-
-
-diet$time_numeric <- as.numeric(diet$time1)
-
-diet['timing'] <- NA
-diet <- diet %>% relocate(timing, .before = time2)
-
-diet$timing[diet$time_numeric > 0 & diet$time_numeric < 18000] <- "energy-midnight-5am"
-diet$timing[diet$time_numeric > 18000 & diet$time_numeric < 28800] <- "energy-5am-8am"
-diet$timing[diet$time_numeric > 28800 & diet$time_numeric < 39600] <- "energy-8am-11am"
-diet$timing[diet$time_numeric > 39600 & diet$time_numeric < 50400] <- "energy-11am-2pm"
-diet$timing[diet$time_numeric > 50400 & diet$time_numeric < 61200] <- "energy-2pm-5pm"
-diet$timing[diet$time_numeric > 61200 & diet$time_numeric < 75600] <- "energy-5pm-9pm"
-diet$timing[diet$time_numeric > 75600 & diet$time_numeric < 86400] <- "energy-9pm-midnight"
-diet$timing <- factor(diet$timing , levels=c("energy-midnight-5am","energy-5am-8am","energy-8am-11am","energy-11am-2pm", "energy-2pm-5pm", "energy-5pm-9pm", "energy-9pm-midnight"))
-
-#daily energy
-daily.energy <- aggregate(diet$energy, by=list(ID=diet$subject.id, date = diet$date), FUN=sum)
-x <- c("ID", "date", "avg_energy")
-colnames(daily.energy) <- x 
-daily.energy.zones <- aggregate(diet$energy, by=list(ID=diet$subject.id, date = diet$date, timing = diet$timing), FUN=sum)
-x <- c("ID", "date", "timing", "energy")
-colnames(daily.energy.zones) <- x 
-daily.energy.zones$energy <- (daily.energy.zones$energy - min(daily.energy.zones$energy))/(max(daily.energy.zones$energy) - min(daily.energy.zones$energy))
-
-#long to wide format for zones
-daily.energy.zones.wide <- dcast(daily.energy.zones, ID + date ~ timing)
-daily.energy.zones.wide[is.na(daily.energy.zones.wide)] <- 0
-
-#join energy data with cgm and steps
-daily.zones.data.combined = left_join(daily.zones.data.combined,daily.energy.zones.wide,by=c("ID"="ID", "date"="date"))
-daily.zones.data.combined_v2 <- daily.zones.data.combined[!is.na(daily.zones.data.combined$avg_steps), ]
-daily.zones.data.combined_v3 <- daily.zones.data.combined_v2
-daily.zones.data.combined_v3[is.na(daily.zones.data.combined_v3)] <- 0
-
-########################
-#energy * steps
-########################
-
-#energy * steps for the same time-block
-daily.zones.data.combined_v3$`energy.steps-midnight-5am` <- daily.zones.data.combined_v3$`energy-midnight-5am` * daily.zones.data.combined_v3$`steps-midnight-5am`
-daily.zones.data.combined_v3$`energy.steps-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`energy.steps-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`energy.steps-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`energy.steps-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`energy.steps-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-daily.zones.data.combined_v3$`energy.steps-9pm-midnight` <- daily.zones.data.combined_v3$`energy-9pm-midnight` * daily.zones.data.combined_v3$`steps-9pm-midnight`
-
-#energy * steps of the previous time-block
-daily.zones.data.combined_v3$`energy.steps.back-midnight-5am` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="energy.steps.back-midnight-5am" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="energy-midnight-5am" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="steps-9pm-midnight" )
-daily.zones.data.combined_v3[ii,n1] <- daily.zones.data.combined_v3[ii,n2] * daily.zones.data.combined_v3[jj,n3]
-daily.zones.data.combined_v3$`energy.steps.back-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`steps-midnight-5am`
-daily.zones.data.combined_v3$`energy.steps.back-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`energy.steps.back-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`energy.steps.back-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`energy.steps.back-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`energy.steps.back-9pm-midnight` <- daily.zones.data.combined_v3$`energy-9pm-midnight` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-
-#energy * steps of the next time-block
-daily.zones.data.combined_v3$`energy.steps.fwd-midnight-5am` <- daily.zones.data.combined_v3$`energy-midnight-5am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`energy.steps.fwd-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`energy.steps.fwd-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`energy.steps.fwd-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`energy.steps.fwd-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-daily.zones.data.combined_v3$`energy.steps.fwd-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`steps-9pm-midnight`
-
-daily.zones.data.combined_v3$`energy.steps.fwd-9pm-midnight` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="energy.steps.fwd-9pm-midnight" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="energy-9pm-midnight" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="steps-midnight-5am" )
-daily.zones.data.combined_v3[jj,n1] <- daily.zones.data.combined_v3[jj,n2] * daily.zones.data.combined_v3[ii,n3]
-
-
-###############################
-#carb
-###############################
-
-diet['timing2'] <- NA
-diet <- diet %>% relocate(timing2, .before = time2)
-
-    diet$timing2[diet$time_numeric > 0 & diet$time_numeric < 18000] <- "carb-midnight-5am"
-    diet$timing2[diet$time_numeric > 18000 & diet$time_numeric < 28800] <- "carb-5am-8am"
-    diet$timing2[diet$time_numeric > 28800 & diet$time_numeric < 39600] <- "carb-8am-11am"
-    diet$timing2[diet$time_numeric > 39600 & diet$time_numeric < 50400] <- "carb-11am-2pm"
-    diet$timing2[diet$time_numeric > 50400 & diet$time_numeric < 61200] <- "carb-2pm-5pm"
-    diet$timing2[diet$time_numeric > 61200 & diet$time_numeric < 75600] <- "carb-5pm-9pm"
-    diet$timing2[diet$time_numeric > 75600 & diet$time_numeric < 86400] <- "carb-9pm-midnight"
-
-    
-diet$timing2 <- factor(diet$timing2 , levels=c("carb-midnight-5am","carb-5am-8am","carb-8am-11am","carb-11am-2pm", "carb-2pm-5pm", "carb-5pm-9pm", "carb-9pm-midnight"))
-
-#daily carb
-daily.carb <- aggregate(diet$carb, by=list(ID=diet$subject.id, date = diet$date), FUN=sum)
-x <- c("ID", "date", "avg_carb")
-colnames(daily.carb) <- x 
-daily.carb.zones <- aggregate(diet$carb, by=list(ID=diet$subject.id, date = diet$date, timing = diet$timing2), FUN=sum)
-x <- c("ID", "date", "timing", "carb")
-colnames(daily.carb.zones) <- x 
-daily.carb.zones$carb <- (daily.carb.zones$carb - min(daily.carb.zones$carb))/(max(daily.carb.zones$carb) - min(daily.carb.zones$carb))
-
-#long to wide format for zones
-daily.carb.zones.wide <- dcast(daily.carb.zones, ID + date ~ timing)
-daily.carb.zones.wide[is.na(daily.carb.zones.wide)] <- 0
-
-#join carb data with cgm, steps, energy
-daily.zones.data.combined_v3 = left_join(daily.zones.data.combined_v3,daily.carb.zones.wide,by=c("ID"="ID", "date"="date"))
-daily.zones.data.combined_v3[is.na(daily.zones.data.combined_v3)] <- 0
-
-########################
-#carb * steps
-########################
-
-#carb * steps for the same time-block
-daily.zones.data.combined_v3$`carb.steps-midnight-5am` <- daily.zones.data.combined_v3$`carb-midnight-5am` * daily.zones.data.combined_v3$`steps-midnight-5am`
-daily.zones.data.combined_v3$`carb.steps-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`carb.steps-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`carb.steps-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`carb.steps-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`carb.steps-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-daily.zones.data.combined_v3$`carb.steps-9pm-midnight` <- daily.zones.data.combined_v3$`carb-9pm-midnight` * daily.zones.data.combined_v3$`steps-9pm-midnight`
-
-#carb * steps of the previous time-block
-daily.zones.data.combined_v3$`carb.steps.back-midnight-5am` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="carb.steps.back-midnight-5am" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="carb-midnight-5am" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="steps-9pm-midnight" )
-daily.zones.data.combined_v3[ii,n1] <- daily.zones.data.combined_v3[ii,n2] * daily.zones.data.combined_v3[jj,n3]
-daily.zones.data.combined_v3$`carb.steps.back-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`steps-midnight-5am`
-daily.zones.data.combined_v3$`carb.steps.back-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`carb.steps.back-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`carb.steps.back-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`carb.steps.back-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`carb.steps.back-9pm-midnight` <- daily.zones.data.combined_v3$`carb-9pm-midnight` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-
-#carb * steps of the next time-block
-daily.zones.data.combined_v3$`carb.steps.fwd-midnight-5am` <- daily.zones.data.combined_v3$`carb-midnight-5am` * daily.zones.data.combined_v3$`steps-5am-8am`
-daily.zones.data.combined_v3$`carb.steps.fwd-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`steps-8am-11am`
-daily.zones.data.combined_v3$`carb.steps.fwd-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`steps-11am-2pm`
-daily.zones.data.combined_v3$`carb.steps.fwd-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`steps-2pm-5pm`
-daily.zones.data.combined_v3$`carb.steps.fwd-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`steps-5pm-9pm`
-daily.zones.data.combined_v3$`carb.steps.fwd-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`steps-9pm-midnight`
-
-daily.zones.data.combined_v3$`carb.steps.fwd-9pm-midnight` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="carb.steps.fwd-9pm-midnight" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="carb-9pm-midnight" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="steps-midnight-5am" )
-daily.zones.data.combined_v3[jj,n1] <- daily.zones.data.combined_v3[jj,n2] * daily.zones.data.combined_v3[ii,n3]
-
-
-########################
-#activity index
-########################
-
-activity_index_all$date = mdy(activity_index_all$date)
-
-#daily activity index
-daily.AI <- aggregate(activity_index_all$normalized_activity_index, by=list(ID=activity_index_all$ID, date = activity_index_all$date), FUN=mean)
-x <- c("ID", "date", "avg_AI")
-colnames(daily.AI) <- x 
-daily.AI.zones <- aggregate(activity_index_all$normalized_activity_index, by=list(ID=activity_index_all$ID, date = activity_index_all$date, timing = activity_index_all$timing), FUN=sum)
-x <- c("ID", "date", "timing", "AI")
-colnames(daily.AI.zones) <- x 
-daily.AI.zones$AI <- (daily.AI.zones$AI - min(daily.AI.zones$AI))/(max(daily.AI.zones$AI) - min(daily.AI.zones$AI))
-daily.AI.zones$timing <- factor(daily.AI.zones$timing , levels=c("midnight-5am","5am-8am","8am-11am","11am-2pm", "2pm-5pm", "5pm-9pm", "9pm-midnight"))
-
-#long to wide format for zones
-daily.AI.zones.wide <- dcast(daily.AI.zones, ID + date ~ timing)
-daily.AI.zones.wide[is.na(daily.AI.zones.wide)] <- 0
-
-#join activity index with previous data
-daily.zones.data.combined_v3 = left_join(daily.zones.data.combined_v3,daily.AI,by=c("ID"="ID", "date"="date"))
-daily.zones.data.combined_v3 = left_join(daily.zones.data.combined_v3,daily.AI.zones.wide,by=c("ID"="ID", "date"="date"))
-daily.zones.data.combined_v3 <- daily.zones.data.combined_v3 %>%
-  dplyr::rename("AI-midnight-5am" = "midnight-5am", "AI-5am-8am" = "5am-8am", "AI-8am-11am" = "8am-11am","AI-11am-2pm" = "11am-2pm", "AI-2pm-5pm" = "2pm-5pm", "AI-5pm-9pm" = "5pm-9pm", "AI-9pm-midnight" = "9pm-midnight")
-daily.zones.data.combined_v3 <- daily.zones.data.combined_v3 %>% relocate(avg_AI, .after = date)
-
-
-########################
-#energy * AI
-########################
-
-#energy * AI for the same time-block
-daily.zones.data.combined_v3$`energy.AI-midnight-5am` <- daily.zones.data.combined_v3$`energy-midnight-5am` * daily.zones.data.combined_v3$`AI-midnight-5am`
-daily.zones.data.combined_v3$`energy.AI-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`energy.AI-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`energy.AI-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`energy.AI-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`energy.AI-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-daily.zones.data.combined_v3$`energy.AI-9pm-midnight` <- daily.zones.data.combined_v3$`energy-9pm-midnight` * daily.zones.data.combined_v3$`AI-9pm-midnight`
-
-#energy * AI of the previous time-block
-daily.zones.data.combined_v3$`energy.AI.back-midnight-5am` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="energy.AI.back-midnight-5am" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="energy-midnight-5am" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="AI-9pm-midnight" )
-daily.zones.data.combined_v3[ii,n1] <- daily.zones.data.combined_v3[ii,n2] * daily.zones.data.combined_v3[jj,n3]
-daily.zones.data.combined_v3$`energy.AI.back-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`AI-midnight-5am`
-daily.zones.data.combined_v3$`energy.AI.back-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`energy.AI.back-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`energy.AI.back-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`energy.AI.back-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`energy.AI.back-9pm-midnight` <- daily.zones.data.combined_v3$`energy-9pm-midnight` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-
-#energy * AI of the next time-block
-daily.zones.data.combined_v3$`energy.AI.fwd-midnight-5am` <- daily.zones.data.combined_v3$`energy-midnight-5am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`energy.AI.fwd-5am-8am` <- daily.zones.data.combined_v3$`energy-5am-8am` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`energy.AI.fwd-8am-11am` <- daily.zones.data.combined_v3$`energy-8am-11am` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`energy.AI.fwd-11am-2pm` <- daily.zones.data.combined_v3$`energy-11am-2pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`energy.AI.fwd-2pm-5pm` <- daily.zones.data.combined_v3$`energy-2pm-5pm` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-daily.zones.data.combined_v3$`energy.AI.fwd-5pm-9pm` <- daily.zones.data.combined_v3$`energy-5pm-9pm` * daily.zones.data.combined_v3$`AI-9pm-midnight`
-
-daily.zones.data.combined_v3$`energy.AI.fwd-9pm-midnight` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="energy.AI.fwd-9pm-midnight" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="energy-9pm-midnight" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="AI-midnight-5am" )
-daily.zones.data.combined_v3[jj,n1] <- daily.zones.data.combined_v3[jj,n2] * daily.zones.data.combined_v3[ii,n3]
-
-########################
-#carb * AI
-########################
-
-#carb * AI for the same time-block
-daily.zones.data.combined_v3$`carb.AI-midnight-5am` <- daily.zones.data.combined_v3$`carb-midnight-5am` * daily.zones.data.combined_v3$`AI-midnight-5am`
-daily.zones.data.combined_v3$`carb.AI-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`carb.AI-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`carb.AI-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`carb.AI-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`carb.AI-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-daily.zones.data.combined_v3$`carb.AI-9pm-midnight` <- daily.zones.data.combined_v3$`carb-9pm-midnight` * daily.zones.data.combined_v3$`AI-9pm-midnight`
-
-#carb * AI of the previous time-block
-daily.zones.data.combined_v3$`carb.AI.back-midnight-5am` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="carb.AI.back-midnight-5am" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="carb-midnight-5am" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="AI-9pm-midnight" )
-daily.zones.data.combined_v3[ii,n1] <- daily.zones.data.combined_v3[ii,n2] * daily.zones.data.combined_v3[jj,n3]
-daily.zones.data.combined_v3$`carb.AI.back-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`AI-midnight-5am`
-daily.zones.data.combined_v3$`carb.AI.back-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`carb.AI.back-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`carb.AI.back-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`carb.AI.back-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`carb.AI.back-9pm-midnight` <- daily.zones.data.combined_v3$`carb-9pm-midnight` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-
-#carb * AI of the next time-block
-daily.zones.data.combined_v3$`carb.AI.fwd-midnight-5am` <- daily.zones.data.combined_v3$`carb-midnight-5am` * daily.zones.data.combined_v3$`AI-5am-8am`
-daily.zones.data.combined_v3$`carb.AI.fwd-5am-8am` <- daily.zones.data.combined_v3$`carb-5am-8am` * daily.zones.data.combined_v3$`AI-8am-11am`
-daily.zones.data.combined_v3$`carb.AI.fwd-8am-11am` <- daily.zones.data.combined_v3$`carb-8am-11am` * daily.zones.data.combined_v3$`AI-11am-2pm`
-daily.zones.data.combined_v3$`carb.AI.fwd-11am-2pm` <- daily.zones.data.combined_v3$`carb-11am-2pm` * daily.zones.data.combined_v3$`AI-2pm-5pm`
-daily.zones.data.combined_v3$`carb.AI.fwd-2pm-5pm` <- daily.zones.data.combined_v3$`carb-2pm-5pm` * daily.zones.data.combined_v3$`AI-5pm-9pm`
-daily.zones.data.combined_v3$`carb.AI.fwd-5pm-9pm` <- daily.zones.data.combined_v3$`carb-5pm-9pm` * daily.zones.data.combined_v3$`AI-9pm-midnight`
-
-daily.zones.data.combined_v3$`carb.AI.fwd-9pm-midnight` <- 0
-ii <- 2:nrow(daily.zones.data.combined_v3)
-jj <- 1:(nrow(daily.zones.data.combined_v3)-1)
-n1 = which( colnames(daily.zones.data.combined_v3)=="carb.AI.fwd-9pm-midnight" )
-n2 = which( colnames(daily.zones.data.combined_v3)=="carb-9pm-midnight" )
-n3 = which( colnames(daily.zones.data.combined_v3)=="AI-midnight-5am" )
-daily.zones.data.combined_v3[jj,n1] <- daily.zones.data.combined_v3[jj,n2] * daily.zones.data.combined_v3[ii,n3]
-
-#join meta data with previous data
-daily.zones.data.combined_v3 = left_join(daily.zones.data.combined_v3,meta.lab.v2,by=c("ID"="subject.id"))
 
 
 ############################
@@ -534,62 +248,15 @@ steps_post_sleep <- steps_post_sleep[complete.cases(steps_post_sleep), ]
 
 diet = left_join(diet,sleep,by=c("subject.id"="subject.id", "date"="date"))
 
-diet['timing.sleep'] <- NA
-diet <- diet %>% relocate(timing.sleep, .before = time2)
-
-diet$timing.sleep[diet$time_numeric > (diet$time.numeric - 3600) & diet$time_numeric < diet$time.numeric] <- "1h_pre_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$time.numeric - 2*3600) & diet$time_numeric < (diet$time.numeric - 3600)] <- "2h_pre_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$time.numeric - 3*3600) & diet$time_numeric < (diet$time.numeric - 2*3600)] <- "3h_pre_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$time.numeric - 4*3600) & diet$time_numeric < (diet$time.numeric - 3*3600)] <- "4h_pre_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$wake.time.numeric) & diet$time_numeric < (diet$wake.time.numeric + 3600)] <- "1h_post_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$wake.time.numeric + 3600) & diet$time_numeric < (diet$wake.time.numeric + 2*3600)] <- "2h_post_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$wake.time.numeric + 2*3600) & diet$time_numeric < (diet$wake.time.numeric + 3*3600)] <- "3h_post_sleep_energy"
-diet$timing.sleep[diet$time_numeric > (diet$wake.time.numeric + 3*3600) & diet$time_numeric < (diet$wake.time.numeric + 4*3600)] <- "4h_post_sleep_energy"
-
-diet$timing.sleep <- factor(diet$timing.sleep , levels=c("1h_pre_sleep_energy","2h_pre_sleep_energy","3h_pre_sleep_energy","4h_pre_sleep_energy","1h_post_sleep_energy","2h_post_sleep_energy","3h_post_sleep_energy","4h_post_sleep_energy"))
-
-diet.pre.post.sleep <- aggregate(diet$energy, by=list(ID=diet$subject.id, date = diet$date, timing.sleep = diet$timing.sleep), FUN=sum)
-x <- c("ID", "date", "timing.sleep", "energy")
+diet.pre.post.sleep <- aggregate(diet$energy, by=list(ID=diet$subject.id, date = diet$date), FUN=sum)
+x <- c("ID", "date", "energy")
 colnames(diet.pre.post.sleep) <- x 
 
-#long to wide format for zones
-diet.pre.post.sleep.wide <- dcast(diet.pre.post.sleep, ID + date ~ timing.sleep)
-diet.pre.post.sleep.wide[is.na(diet.pre.post.sleep.wide)] <- 0
-diet.pre.post.sleep.wide$`4h_pre_sleep_energy` <-  diet.pre.post.sleep.wide$`4h_pre_sleep_energy` + diet.pre.post.sleep.wide$`3h_pre_sleep_energy` + diet.pre.post.sleep.wide$`2h_pre_sleep_energy` + diet.pre.post.sleep.wide$`1h_pre_sleep_energy`
-diet.pre.post.sleep.wide$`3h_pre_sleep_energy` <-  diet.pre.post.sleep.wide$`3h_pre_sleep_energy` + diet.pre.post.sleep.wide$`2h_pre_sleep_energy` + diet.pre.post.sleep.wide$`1h_pre_sleep_energy`
-diet.pre.post.sleep.wide$`2h_pre_sleep_energy` <-  diet.pre.post.sleep.wide$`2h_pre_sleep_energy` + diet.pre.post.sleep.wide$`1h_pre_sleep_energy`
-diet.pre.post.sleep.wide$`4h_post_sleep_energy` <-  diet.pre.post.sleep.wide$`4h_post_sleep_energy` + diet.pre.post.sleep.wide$`3h_post_sleep_energy` + diet.pre.post.sleep.wide$`2h_post_sleep_energy` + diet.pre.post.sleep.wide$`1h_post_sleep_energy`
-diet.pre.post.sleep.wide$`3h_post_sleep_energy` <-  diet.pre.post.sleep.wide$`3h_post_sleep_energy` + diet.pre.post.sleep.wide$`2h_post_sleep_energy` + diet.pre.post.sleep.wide$`1h_post_sleep_energy`
-diet.pre.post.sleep.wide$`2h_post_sleep_energy` <-  diet.pre.post.sleep.wide$`2h_post_sleep_energy` + diet.pre.post.sleep.wide$`1h_post_sleep_energy`
-
-
-steps_pre_sleep = left_join(steps_pre_sleep,diet.pre.post.sleep.wide,by=c("ID"="ID", "date"="date"))
-steps_pre_sleep_v2<- steps_pre_sleep
-steps_pre_sleep_v2$`1h_pre_sleep_energy`[steps_pre_sleep_v2$`1h_pre_sleep_energy` > 0] <- 1
-steps_pre_sleep_v2$`1h_pre_sleep_energy`[steps_pre_sleep_v2$`1h_pre_sleep_energy` == 0] <- 0
-steps_pre_sleep_v2$`2h_pre_sleep_energy`[steps_pre_sleep_v2$`2h_pre_sleep_energy` > 0] <- 1
-steps_pre_sleep_v2$`2h_pre_sleep_energy`[steps_pre_sleep_v2$`2h_pre_sleep_energy` == 0] <- 0
-steps_pre_sleep_v2$`3h_pre_sleep_energy`[steps_pre_sleep_v2$`3h_pre_sleep_energy` > 0] <- 1
-steps_pre_sleep_v2$`3h_pre_sleep_energy`[steps_pre_sleep_v2$`3h_pre_sleep_energy` == 0] <- 0
-steps_pre_sleep_v2$`4h_pre_sleep_energy`[steps_pre_sleep_v2$`4h_pre_sleep_energy` > 0] <- 1
-steps_pre_sleep_v2$`4h_pre_sleep_energy`[steps_pre_sleep_v2$`4h_pre_sleep_energy` == 0] <- 0
-steps_pre_sleep_v2 <- steps_pre_sleep_v2[complete.cases(steps_pre_sleep_v2), ]
-steps_pre_sleep_v2 = left_join(steps_pre_sleep_v2,meta.lab.v2,by=c("ID"="subject.id"))
+steps_pre_sleep = diet.pre.post.sleep
 steps_pre_sleep <- steps_pre_sleep[complete.cases(steps_pre_sleep), ]
 steps_pre_sleep = left_join(steps_pre_sleep,meta.lab.v2,by=c("ID"="subject.id"))
 
 steps_post_sleep = left_join(steps_post_sleep,diet.pre.post.sleep.wide,by=c("ID"="ID", "date"="date"))
-steps_post_sleep_v2<- steps_post_sleep
-steps_post_sleep_v2$`1h_post_sleep_energy`[steps_post_sleep_v2$`1h_post_sleep_energy` > 0] <- 1
-steps_post_sleep_v2$`1h_post_sleep_energy`[steps_post_sleep_v2$`1h_post_sleep_energy` == 0] <- 0
-steps_post_sleep_v2$`2h_post_sleep_energy`[steps_post_sleep_v2$`2h_post_sleep_energy` > 0] <- 1
-steps_post_sleep_v2$`2h_post_sleep_energy`[steps_post_sleep_v2$`2h_post_sleep_energy` == 0] <- 0
-steps_post_sleep_v2$`3h_post_sleep_energy`[steps_post_sleep_v2$`3h_post_sleep_energy` > 0] <- 1
-steps_post_sleep_v2$`3h_post_sleep_energy`[steps_post_sleep_v2$`3h_post_sleep_energy` == 0] <- 0
-steps_post_sleep_v2$`4h_post_sleep_energy`[steps_post_sleep_v2$`4h_post_sleep_energy` > 0] <- 1
-steps_post_sleep_v2$`4h_post_sleep_energy`[steps_post_sleep_v2$`4h_post_sleep_energy` == 0] <- 0
-steps_post_sleep_v2 <- steps_post_sleep_v2[complete.cases(steps_post_sleep_v2), ]
-steps_post_sleep_v2 = left_join(steps_post_sleep_v2,meta.lab.v2,by=c("ID"="subject.id"))
 steps_post_sleep <- steps_post_sleep[complete.cases(steps_post_sleep), ]
 steps_post_sleep = left_join(steps_post_sleep,meta.lab.v2,by=c("ID"="subject.id"))
 
@@ -597,11 +264,6 @@ steps_post_sleep = left_join(steps_post_sleep,meta.lab.v2,by=c("ID"="subject.id"
 daily.steps.avg <- aggregate(daily.steps$avg_steps, by=list(ID=daily.steps$ID), FUN=mean)
 x <- c("ID", "daily_steps")
 colnames(daily.steps.avg) <- x 
-
-#daily AI avg
-daily.AI.avg <- aggregate(daily.AI$avg_AI, by=list(ID=daily.AI$ID), FUN=mean)
-x <- c("ID", "daily_activity_index")
-colnames(daily.AI.avg) <- x 
 
 #avg steps pre-sleep
 temp1 <- aggregate(steps_pre_sleep$steps_1h, by=list(ID=steps_pre_sleep$ID), FUN=mean)
@@ -770,8 +432,7 @@ daily.move.sed.all.mean.sd <- left_join(daily.moving.mean.sd,daily.sed.mean.sd,b
 daily.move.sed.all.mean.sd <- left_join(daily.move.sed.all.mean.sd,daily.move.sed.ratio.mean.sd,by=c("ID"="ID"))
 
 #join all daily physical activity features
-PA_features_days = left_join(daily.steps,daily.AI,by=c("ID"="ID", "date"="date"))
-PA_features_days = left_join(PA_features_days,steps_pre_sleep_sub,by=c("ID"="ID", "date"="date"))
+PA_features_days = left_join(daily.steps,steps_pre_sleep_sub,by=c("ID"="ID", "date"="date"))
 PA_features_days = left_join(PA_features_days,steps_post_sleep_sub,by=c("ID"="ID", "date"="date"))
 PA_features_days = left_join(PA_features_days,daily.moving,by=c("ID"="ID", "date"="date"))
 PA_features_days = left_join(PA_features_days,daily.sed,by=c("ID"="ID", "date"="date"))
@@ -782,8 +443,7 @@ PA_features_days <- PA_features_days %>%
   dplyr::rename("daily_steps" = "avg_steps", "daily_activity_index" = "avg_AI")
 
 #join all average physical activity features
-PA_features_avg = left_join(daily.steps.avg,daily.AI.avg,by=c("ID"="ID"))
-PA_features_avg = left_join(PA_features_avg,avg.pre.sleep.steps,by=c("ID"="ID"))
+PA_features_avg = left_join(daily.steps.avg,avg.pre.sleep.steps,by=c("ID"="ID"))
 PA_features_avg = left_join(PA_features_avg,avg.post.wake.steps,by=c("ID"="ID"))
 PA_features_avg = left_join(PA_features_avg,daily.move.sed.active.avg,by=c("ID"="ID"))
 
