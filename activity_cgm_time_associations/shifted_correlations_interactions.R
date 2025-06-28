@@ -298,15 +298,17 @@ melt_interaction.temp2$CGM <- factor(melt_interaction.temp2$CGM, levels=c("12am-
 # combine corr coef and p-value dataframes and format 
 melt.cgm.steps.perm = left_join(melt.temp1,melt.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt.cgm.steps.perm$corr_coeff <- round(melt.cgm.steps.perm$corr_coeff,digits=2) 
-melt.cgm.steps.perm$perm.p.value[melt.cgm.steps.perm$perm.p.value > 0.001] <- NA
-melt.cgm.steps.perm$perm.p.value[melt.cgm.steps.perm$perm.p.value < 0.001] <- "*"
+melt.cgm.steps.perm$adj_qval <- p.adjust(melt.cgm.steps.perm$perm.p.value, method = "BH")
+melt.cgm.steps.perm$perm.p.value[melt.cgm.steps.perm$adj_qval >= 0.01] <- NA
+melt.cgm.steps.perm$perm.p.value[melt.cgm.steps.perm$adj_qval < 0.01] <- "*"
 melt.cgm.steps.perm$perm.p.value[!is.na(melt.cgm.steps.perm$perm.p.value)] <- formatC(melt.cgm.steps.perm$perm.p.value[!is.na(melt.cgm.steps.perm$perm.p.value)], format = "e", digits = 0)
 
 # interaction now 
 melt_interaction.cgm.steps.perm = left_join(melt_interaction.temp1,melt_interaction.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt_interaction.cgm.steps.perm$corr_coeff <- round(melt_interaction.cgm.steps.perm$corr_coeff,digits=2)
-melt_interaction.cgm.steps.perm$perm.p.value[melt_interaction.cgm.steps.perm$perm.p.value > 0.001] <- NA
-melt_interaction.cgm.steps.perm$perm.p.value[melt_interaction.cgm.steps.perm$perm.p.value < 0.001] <- "*"
+melt_interaction.cgm.steps.perm$adj_qval <- p.adjust(melt_interaction.cgm.steps.perm$perm.p.value, method = "BH")
+melt_interaction.cgm.steps.perm$perm.p.value[melt_interaction.cgm.steps.perm$adj_qval >= 0.01] <- NA
+melt_interaction.cgm.steps.perm$perm.p.value[melt_interaction.cgm.steps.perm$adj_qval < 0.01] <- "*"
 melt_interaction.cgm.steps.perm$perm.p.value[!is.na(melt_interaction.cgm.steps.perm$perm.p.value)] <- formatC(melt_interaction.cgm.steps.perm$perm.p.value[!is.na(melt_interaction.cgm.steps.perm$perm.p.value)], format = "e", digits = 0)
 
 ###################################################
@@ -527,15 +529,17 @@ melt_interaction.temp2$CGM <- factor(melt_interaction.temp2$CGM, levels=c("12am-
 # combine corr coef and p-value dataframes and format 
 melt.cgm.steps.perm.next = left_join(melt.temp1,melt.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt.cgm.steps.perm.next$corr_coeff <- round(melt.cgm.steps.perm.next$corr_coeff,digits=2)
-melt.cgm.steps.perm.next$perm.p.value[melt.cgm.steps.perm.next$perm.p.value > 0.001] <- NA
-melt.cgm.steps.perm.next$perm.p.value[melt.cgm.steps.perm.next$perm.p.value < 0.001] <- "*"
+melt.cgm.steps.perm.next$adj_qval <- p.adjust(melt.cgm.steps.perm.next$perm.p.value, method = "BH")
+melt.cgm.steps.perm.next$perm.p.value[melt.cgm.steps.perm.next$adj_qval >= 0.01] <- NA
+melt.cgm.steps.perm.next$perm.p.value[melt.cgm.steps.perm.next$adj_qval < 0.01] <- "*"
 melt.cgm.steps.perm.next$perm.p.value[!is.na(melt.cgm.steps.perm.next$perm.p.value)] <- formatC(melt.cgm.steps.perm.next$perm.p.value[!is.na(melt.cgm.steps.perm.next$perm.p.value)], format = "e", digits = 0)
 
 # interaction
 melt_interaction.cgm.steps.perm.next = left_join(melt_interaction.temp1,melt_interaction.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt_interaction.cgm.steps.perm.next$corr_coeff <- round(melt_interaction.cgm.steps.perm.next$corr_coeff,digits=2)
-melt_interaction.cgm.steps.perm.next$perm.p.value[melt_interaction.cgm.steps.perm.next$perm.p.value > 0.001] <- NA
-melt_interaction.cgm.steps.perm.next$perm.p.value[melt_interaction.cgm.steps.perm.next$perm.p.value < 0.001] <- "*"
+melt_interaction.cgm.steps.perm.next$adj_qval <- p.adjust(melt_interaction.cgm.steps.perm.next$perm.p.value, method = "BH")
+melt_interaction.cgm.steps.perm.next$perm.p.value[melt_interaction.cgm.steps.perm.next$adj_qval >= 0.01] <- NA
+melt_interaction.cgm.steps.perm.next$perm.p.value[melt_interaction.cgm.steps.perm.next$adj_qval < 0.01] <- "*"
 melt_interaction.cgm.steps.perm.next$perm.p.value[!is.na(melt_interaction.cgm.steps.perm.next$perm.p.value)] <- formatC(melt_interaction.cgm.steps.perm.next$perm.p.value[!is.na(melt_interaction.cgm.steps.perm.next$perm.p.value)], format = "e", digits = 0)
 
 ###################################################
@@ -772,8 +776,9 @@ melt_interaction.temp2$CGM <- factor(melt_interaction.temp2$CGM, levels=c("12am-
 # combine corr coef and p-value dataframes and format 
 melt.cgm.steps.perm.next2 = left_join(melt.temp1,melt.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt.cgm.steps.perm.next2$corr_coeff <- round(melt.cgm.steps.perm.next2$corr_coeff,digits=2)
-melt.cgm.steps.perm.next2$perm.p.value[melt.cgm.steps.perm.next2$perm.p.value > 0.001] <- NA
-melt.cgm.steps.perm.next2$perm.p.value[melt.cgm.steps.perm.next2$perm.p.value < 0.001] <- "*"
+melt.cgm.steps.perm.next2$adj_qval <- p.adjust(melt.cgm.steps.perm.next2$perm.p.value, method = "BH")
+melt.cgm.steps.perm.next2$perm.p.value[melt.cgm.steps.perm.next2$adj_qval >= 0.01] <- NA
+melt.cgm.steps.perm.next2$perm.p.value[melt.cgm.steps.perm.next2$adj_qval < 0.01] <- "*"
 melt.cgm.steps.perm.next2$perm.p.value[!is.na(melt.cgm.steps.perm.next2$perm.p.value)] <- formatC(melt.cgm.steps.perm.next2$perm.p.value[!is.na(melt.cgm.steps.perm.next2$perm.p.value)], format = "e", digits = 0)
 melt.cgm.steps.perm.next2.comb <- melt.cgm.steps.perm.next2
 melt.cgm.steps.perm.next2.comb$perm.p.value[is.na(melt.cgm.steps.perm.next2.comb$corr_coeff)] <- NA
@@ -788,8 +793,9 @@ melt.cgm.steps.perm.next2.comb <- melt.cgm.steps.perm.next2.comb %>%
 # interaction 
 melt_interaction.cgm.steps.perm.next2 = left_join(melt_interaction.temp1,melt_interaction.temp2,by=c("CGM"="CGM", "steps"="steps"))
 melt_interaction.cgm.steps.perm.next2$corr_coeff <- round(melt_interaction.cgm.steps.perm.next2$corr_coeff,digits=2)
-melt_interaction.cgm.steps.perm.next2$perm.p.value[melt_interaction.cgm.steps.perm.next2$perm.p.value > 0.001] <- NA
-melt_interaction.cgm.steps.perm.next2$perm.p.value[melt_interaction.cgm.steps.perm.next2$perm.p.value < 0.001] <- "*"
+melt_interaction.cgm.steps.perm.next2$adj_qval <- p.adjust(melt_interaction.cgm.steps.perm.next2$perm.p.value, method = "BH")
+melt_interaction.cgm.steps.perm.next2$perm.p.value[melt_interaction.cgm.steps.perm.next2$adj_qval >= 0.01] <- NA
+melt_interaction.cgm.steps.perm.next2$perm.p.value[melt_interaction.cgm.steps.perm.next2$adj_qval < 0.01] <- "*"
 melt_interaction.cgm.steps.perm.next2$perm.p.value[!is.na(melt_interaction.cgm.steps.perm.next2$perm.p.value)] <- formatC(melt_interaction.cgm.steps.perm.next2$perm.p.value[!is.na(melt_interaction.cgm.steps.perm.next2$perm.p.value)], format = "e", digits = 0)
 melt_interaction.cgm.steps.perm.next2.comb <- melt_interaction.cgm.steps.perm.next2
 melt_interaction.cgm.steps.perm.next2.comb$perm.p.value[is.na(melt_interaction.cgm.steps.perm.next2.comb$corr_coeff)] <- NA
